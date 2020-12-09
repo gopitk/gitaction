@@ -54,7 +54,7 @@ Store the Personal Access Token copied above in the secret named PAT and the Ser
 Click on the "Actions" tab of your repo and then select 'Setup a workflow yourself". Here you can copy the sample [Actions spec](azure-spot-self-hosted-actions-template.yaml) (YAML) that you can use and adapt.
 
 The sample YAML file is annotated. But basic steps include:
-* Create a Azure Spot VM on a Nvidia K80 GPU using Azure CLI available in the default free Github runner environment where this step will execute. In this example we create the VM with a [Data Science VM](http://aka.ms/dsvm) image that has preinstaleld Nvidia drivers, docker, DL frameworks liek Tensorflow, Pytorch etc. You can choose any other OS image and customize the environment to yoru specific needs. 
+* Create a Azure Spot VM on a Nvidia K80 GPU using Azure CLI available in the default free Github runner environment where this step will execute. In this example we create the VM with a [Data Science VM](http://aka.ms/dsvm) image that has preinstaleld Nvidia drivers, docker, DL frameworks liek Tensorflow, Pytorch etc. You can choose any other OS image and customize the environment to your specific needs. 
 * Run an Azure [extension script](https://gist.github.com/gopitk/805d7035217dfd2e81d52d0b109c3349/raw/ce581a3472af54ca3293a16016aec55023ed46a7/installgitactrunners.sh) currently a gist, 
 which installs the Github Action Runners and installs it as a service. It also registers itself to Github Actions so you will see a runner instance once this script executes on the newly created VM. 
 * Then you can run whatever code like training a model on the self hosted runner that is registered in previous step. For simplicity, the command run in this sample is just looking at the GPU status using the "nvidia-smi" command and saving it in a file.
@@ -63,9 +63,11 @@ which installs the Github Action Runners and installs it as a service. It also r
 ### Triggering your Github Actions Workflow
 In the sample YAML file, the action is trigger when you create a new issue. You can customize it to trigger on other events liek a pull requests or specific patterns in pull request comments. 
 
-When you create a new issue in your repo, it will run the workflow and you can see the progress. 
+When you create a new issue in your repo, it will run the workflow and you can see the progress. When the run is complete you will see something like what is shown below in your Github actions run for your workflow. 
 
-As you can see it is quite simpel to create a Github Actions workflow. For me, it needed some trial and error in terms of integrating with Azure CLI, scripts to automatically register the self hosted runner. Hope this recipe will make it a bit easier for you. 
+![Workflow Completion](/images/ghactionworkflow.png)
+
+As you can see it is quite simple to create a Github Actions workflow. For me, it needed some trial and error in terms of integrating with Azure CLI, scripts to automatically register the self hosted runner. Hope this recipe will make it a bit easier for you. 
 
 Welcome any feedback and suggestions as pull requests. 
 
