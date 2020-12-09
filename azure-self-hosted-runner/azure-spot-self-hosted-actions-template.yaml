@@ -1,0 +1,64 @@
+name: GPURun
+on:
+  issues:
+    types: [opened]
+jobs:
+  deploy-cloud-runner:
+    runs-on: ubuntu-latest
+    steps:
+    # Authenticate to Azure    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: deploy
+      env:
+          repo_token: ${{ secrets.PAT }}
+      run: |
+          vmname="ghactionrunner"
+          repo_url=$GITHUB_REPOSITORY
+          ext_param='{"fileUris": ["https://gist.github.com/gopitk/805d7035217dfd2e81d52d0b109c3349/raw/ce581a3472af54ca3293a16016aec55023ed46a7/installgitactrunners.sh"],"commandToExecute": "bash ./installgitactrunners.sh '$repo_url' '$repo_token'"}'
+          echo $ext_param > extparam.json
+          # Create a Azure Data Science VM (Spot instance) using Azure CLI and then run a post processing script at fileUri (gist) above
+          # This gist script will install the Github Actions runner and registers it with your Github account using your Personal Access Token
+          az vm create --name $vmname -g $vmname --image microsoft-dsvm:ubuntu-1804:1804:latest \
+             --priority Low --size Standard_NC6 --eviction-policy Deallocate --admin-user gitactor --generate-ssh-keys --tags "use=gitactionrunner" && \
+          az vm extension set --resource-group $vmname --vm-name $vmname --name customScript --publisher Microsoft.Azure.Extensions \
+              --protected-settings  @extparam.json && \
+          rm extparam.json && \
+          sleep 20 && echo "Deployed $vmname"
+          
+  train:
+    needs: deploy-cloud-runner
+    runs-on: [self-hosted]
+    steps:
+      - name: runme
+        # Now you can run anything like train a model. For simplicity we just check status of the GPU and save output
+        run: |
+          nvidia-smi | tee report.md
+          
+      # Save the output from check GPU status as an artifact of the Github Actions workflow run using a prebuilt standard Actions published on Actions Marketplace by Github 
+      - name: Upload results
+        uses: actions/upload-artifact@v2
+        with:
+          name: result
+          path: report.md
+          
+  # Now you are ready to delete the Azure VM that is created to avoid being billed
+  # TODO: Need to deregister the self-hosted Runner in Github Actions
+  teardown-cloud-runner:
+    needs: train
+    runs-on: ubuntu-latest
+    steps:
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+   
+    # Use Azure CLI to delete all resources created. Since we tagged the resources when we created we can just delete all resource with that tag
+    # We use the nifty query (JMES) capability in Azure CLI to identify all resources and delete them in one fell swoop
+    - name: teardown
+      run: |
+          az resource delete --ids $(az resource list --tag "use=gitactionrunner" --query "[?resourceGroup=='ghactionrunner' || resourceGroup=='GHACTIONRUNNER'].id" -o tsv)
